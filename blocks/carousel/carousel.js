@@ -43,6 +43,47 @@ export function showSlide(block, slideIndex = 0, behavior = 'smooth') {
   });
 }
 
+const IMAGE_URL_REGEX = /^https?:\/\/\S+$/i;
+
+/**
+ * Se la colonna immagine contiene un link/URL invece di un <picture>,
+ * lo converte in un'immagine mantenendo la strumentazione per l'Universal Editor.
+ */
+function buildImageFromLink(column, isFirstSlide) {
+  // Se l'autore ha usato un asset classico, non tocchiamo nulla
+  if (column.querySelector('picture, img')) return;
+
+  const link = column.querySelector('a');
+  let url = link?.getAttribute('href')?.trim();
+
+  // Fallback: URL renderizzato come testo semplice
+  let urlEl = link?.closest('p') || link;
+  if (!url) {
+    urlEl = [...column.querySelectorAll('p')]
+      .find((p) => IMAGE_URL_REGEX.test(p.textContent.trim()));
+    url = urlEl?.textContent.trim();
+  }
+  if (!url || !IMAGE_URL_REGEX.test(url)) return;
+
+  // L'alt, se presente, è il testo rimanente nella cella
+  const altEl = [...column.querySelectorAll('p')].find((p) => p !== urlEl);
+  const alt = altEl?.textContent.trim() || '';
+
+  const picture = document.createElement('picture');
+  const img = document.createElement('img');
+  img.src = url;
+  img.alt = alt;
+  img.loading = isFirstSlide ? 'eager' : 'lazy';
+  if (isFirstSlide) img.setAttribute('fetchpriority', 'high');
+  picture.append(img);
+
+  // Mantiene il campo editabile nell'Universal Editor
+  if (link) moveInstrumentation(link, img);
+  else if (urlEl) moveInstrumentation(urlEl, img);
+
+  column.replaceChildren(picture);
+}
+
 function bindEvents(block) {
   const slideIndicators = block.querySelector('.carousel-slide-indicators');
   if (!slideIndicators) return;
@@ -78,7 +119,12 @@ function createSlide(row, slideIndex, carouselId) {
   slide.classList.add('carousel-slide');
 
   row.querySelectorAll(':scope > div').forEach((column, colIdx) => {
-    column.classList.add(`carousel-slide-${colIdx === 0 ? 'image' : 'content'}`);
+    if (colIdx === 0) {
+      column.classList.add('carousel-slide-image');
+      buildImageFromLink(column, slideIndex === 0);
+    } else {
+      column.classList.add('carousel-slide-content');
+    }
     slide.append(column);
   });
 

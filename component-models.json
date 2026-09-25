@@ -189,9 +189,9 @@
     "id": "carousel-item",
     "fields": [
       {
-        "component": "reference",
+        "component": "text",
         "valueType": "string",
-        "name": "media_image",
+        "name": "media_imageLink",
         "label": "Background Image",
         "multi": false
       },
